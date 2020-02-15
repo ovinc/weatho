@@ -10,7 +10,8 @@ In its current version, I have focused only on the following weather params:
     - humidity
     - wind (average, gusts, direction)
 
-But more data is available if necessary (pressure, cloud cover, rain etc.)
+But more data is available if necessary (pressure, cloud cover, rain etc.),
+see e.g. the dictionary returned by functions like load_day
 
 Olivier Vincent, 2020-02-09
 
@@ -128,7 +129,7 @@ def download_days(location, date_start, date_end, api_key='', save=True, folder=
     tend = time.time()
     total_time = tend - tstart
 
-    print(f'Loading finished in {total_time} seconds')
+    print(f'Loading finished in {total_time} seconds. Youpi!')
 
     return
 
