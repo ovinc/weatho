@@ -33,7 +33,6 @@ To plot the data:
 
 """
 
-# TODO -- load and save data for a specific period or a whole year
 # TODO -- error management, often wind Bearing is missing, just put none
 # TODO -- add pressure
 # TODO -- move from threading to concurrent futures
@@ -87,6 +86,15 @@ def generate_url(location, date='now', api_key=''):
 
     return url
 
+def generate_filename(location, date):
+    (lat, lon) = location
+    coord = f'{lat},{lon}'
+    year = date.year
+    month = date.month
+    day = date.day
+    filename = 'DarkSky_' + coord + f',{year:04d}-{month:02d}-{day:02d}.json'
+    return filename
+
 
 def download_day(location, date='now', api_key='', save=False, folder=''):
     """
@@ -116,14 +124,8 @@ def download_day(location, date='now', api_key='', save=False, folder=''):
 
         if date == 'now': date = datetime.now()  # Warning -- date changed here
 
-        (lat, lon) = location
-        coord = f'{lat},{lon}'
-        year = date.year
-        month = date.month
-        day = date.day
-
-        filename = 'DarkSky_' + coord + f',{year:04d}-{month:02d}-{day:02d}.json'
-
+        filename = generate_filename(location, date)
+        
         foldername = Path(folder)
         foldername.mkdir(parents=True, exist_ok=True)
 
@@ -174,6 +176,58 @@ def download_days(location, date_start, date_end, api_key='', save=True, folder=
     total_time = tend - tstart
 
     print(f'Loading finished in {total_time} seconds.')
+
+    return
+
+
+def download_missing_days(location, date_start, date_end, api_key='', save=True, folder=''):
+    """
+    Check if there are missing days between two dates and download them.
+    
+    Inputs / Outputs are the same as download_days()
+    """
+    delta_t = date_end - date_start
+    ndays = delta_t.days + 1  # number of days to load
+
+    tstart = time.time()
+    
+    # Check missing days -----------------------------------------------------
+    
+    missing_days = []
+    
+    for day in range(ndays):
+        
+        date = date_start + timedelta(days=day)     
+        file = Path(folder) / generate_filename(location, date)
+        
+        if file.exists() is False:
+            missing_days.append(date)
+            
+    if len(missing_days) == 0:
+        print('No missing days found.')
+    else:
+        n_miss = len(missing_days)
+        print(f'{n_miss} missing days found.')
+
+        threads = []
+        
+        print(f'Loading started in folder {folder}')
+    
+        for date in missing_days:
+            arguments = (location, date, api_key, save, folder)
+            thread = threading.Thread(target=download_day, args=arguments)
+            threads.append(thread)
+    
+        for thread in threads:
+            thread.start()
+    
+        for thread in threads:
+            thread.join()
+    
+        tend = time.time()
+        total_time = tend - tstart
+    
+        print(f'Loading finished in {total_time} seconds.')
 
     return
 

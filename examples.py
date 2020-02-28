@@ -112,6 +112,11 @@ wov.download_days(Lyon, date1, date2, key, save=True, folder='Data/Test')
 # or
 # wov.download_days(Lyon, date1, date2, key, folder='Data/Test')
 
+# download missing days if necessary
+wov.download_missing_days(Lyon, date1, date2, key, save=True, folder='Data/Test')
+
+
+
 # %% get hourly data for n successive days in history, from saved files ------
 # (needs to be run after above cell)
 

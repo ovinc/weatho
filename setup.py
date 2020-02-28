@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+import weatherov
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -7,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setup(
         name='weatherov',
-        version="1.0",
+        version=weatherov.__version__,
         author='Olivier Vincent',
         author_email='olivier.vincent@univ-lyon1.fr',
         url='https://cameleon.univ-lyon1.fr/ovincent/weatherov',
