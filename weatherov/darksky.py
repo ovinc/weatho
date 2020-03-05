@@ -368,12 +368,19 @@ def _data_to_pts(data):
 
     data_time = data['time']
     t = datetime.fromtimestamp(data_time)
+    
+    def formatdata(name):
+        try:
+            val = data[name]
+        except KeyError:
+            val = None
+        return val
 
-    T = data['temperature']
-    RH = 100*data['humidity']
-    w = data['windSpeed']
-    wmax = data['windGust']
-    wdir = data['windBearing']
+    T = formatdata('temperature')
+    RH = 100*formatdata('humidity')
+    w = formatdata('windSpeed')
+    wmax = formatdata('windGust')
+    wdir = formatdata('windBearing')
 
     return t, T, RH, w, wmax, wdir
 
