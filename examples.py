@@ -3,13 +3,13 @@ and functions from the darksky module in the weather project (O. Vincent)
 
 All %% cells are independent (except when specified), but need the initial 
 imports, as well as an api_key for DarkSky.net (free if <1000 calls/day)
-stored as a string in the variable api_key
+stored as a string in the variable api_key, and city coordinate imports
 """
 
 import weatherov as wov
 
 # import GPS coordinates of some cities
-from locations import Lyon, Paris, Marseille
+from locations import coordinates
 
 # general imports
 from datetime import datetime, timedelta
@@ -18,6 +18,10 @@ from datetime import datetime, timedelta
 # %% 
 key = api_key  # see docstring above 
 
+# %% Define location coordinates
+Lyon = coordinates['Lyon']
+Paris = coordinates['Paris']
+Marseille = coordinates['Marseille']
 
 # %% get single weather point at current time --------------------------------
 
@@ -108,13 +112,13 @@ day = 4
 date1 = datetime(year, month, day)
 date2 = date1 + timedelta(days=4)
 
-wov.download_days(Lyon, date1, date2, key, save=True, folder='Data/Test')
+wov.download_days(Lyon, date1, date2, key, folder='Data/Test')
 # or
 # wov.download_days(Lyon, date1, date2, key, folder='Data/Test')
 
-# download missing days if necessary
-wov.download_missing_days(Lyon, date1, date2, key, save=True, folder='Data/Test')
-
+# download missing days if necessary (now it's also run automatically at the
+# end of download_days, once).
+wov.download_missing_days(Lyon, date1, date2, key, folder='Data/Test')
 
 
 # %% get hourly data for n successive days in history, from saved files ------

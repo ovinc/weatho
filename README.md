@@ -19,7 +19,7 @@ But more data is available if necessary (pressure, cloud cover, rain etc.).
 
 ## Summary of functions 
 
-See `examples.py` and `help(function)` for implementation).
+See `examples.py` and `help(function)` for implementation.
 
 To produce complete RAW data (dictionary corresponding to DarkSky .json file),
 use the following functions:

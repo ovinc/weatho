@@ -17,23 +17,26 @@ Summary of functions (see examples and help(function) for implementation):
 
 To produce complete RAW data (dictionary corresponding to DarkSky .json file),
 use the following functions:
-
 - `generate_url` and copy-paste the link into a browser (returns url link)
 - `download_day` to get the raw data from the internet (returns dict of data)
 - `load_day` to get the raw data from downloaded files (returns dict of data)
 
 To produce FORMATTED data for analysis and plotting, use the following:
-
 - `weather_pt`  (returns a dict of values -- data at specific time)
 - `weather_day` (returns a dict of lists -- hourly data)
 - `weather_days` (returns a dict of lists -- hourly data)
 
-To plot the data:
-- `weather_plot`, with formatted data from `weather_day` or `weather_days`
+To download a bunch of data from the internet and save in a file:
+- `download_days` (saves RAW data in .json format in a folder, it is a threaded
+version of download_day)
+- `download_missing_days` (to run after download_days if some days have failed)
+- the above function uses `check_missing_days`, which can also be used as a 
+standalone function
 
+To plot the data:
+- `weather_plot`, with formatted data from `weather_day` or `weather_days
 """
 
-# TODO -- error management, often wind Bearing is missing, just put none
 # TODO -- add pressure
 # TODO -- move from threading to concurrent futures
 # TODO -- error or warning if someone tries to create a folder called 'internet'
@@ -86,6 +89,7 @@ def generate_url(location, date='now', api_key=''):
 
     return url
 
+
 def generate_filename(location, date):
     (lat, lon) = location
     coord = f'{lat},{lon}'
@@ -137,21 +141,17 @@ def download_day(location, date='now', api_key='', save=False, folder=''):
     return data
 
 
-def download_days(location, date_start, date_end, api_key='', save=True, folder=''):
+def download_days(location, date_start, date_end, api_key='', folder=''):
     """
     Downloads weather data (day-by-day) from DarkSky between selected dates.
     Uses threading on the function dowload_day().
 
-    In the current version, the "save" boolean is unnecessary because there is
-    nothing returned by the program except the output files, but I keep it
-    there with default 'True' for similarity with download_day and in case it
-    is needed in the future.
-
     INPUTS
     Same as download_day except that dates have to be datetimes (not 'now')
+    and there is no `save` option (data is always saved in a file here).
 
     OUTPUTS
-    None at the moment
+    None
     """
     delta_t = date_end - date_start
     ndays = delta_t.days + 1  # number of days to load
@@ -162,7 +162,7 @@ def download_days(location, date_start, date_end, api_key='', save=True, folder=
 
     for day in range(ndays):
         date = date_start + timedelta(days=day)
-        arguments = (location, date, api_key, save, folder)
+        arguments = (location, date, api_key, True, folder)
         thread = threading.Thread(target=download_day, args=arguments)
         threads.append(thread)
 
@@ -176,22 +176,18 @@ def download_days(location, date_start, date_end, api_key='', save=True, folder=
     total_time = tend - tstart
 
     print(f'Loading finished in {total_time} seconds.')
+    
+    # Check that all requested files have been downloadedand download missing
+    download_missing_days(location, date_start, date_end, api_key, folder)
 
     return
 
 
-def download_missing_days(location, date_start, date_end, api_key='', save=True, folder=''):
-    """
-    Check if there are missing days between two dates and download them.
+def check_missing_days(location, date_start, date_end, folder=''):
+    """Check for missing days between two dates in downloaded data"""
     
-    Inputs / Outputs are the same as download_days()
-    """
     delta_t = date_end - date_start
     ndays = delta_t.days + 1  # number of days to load
-
-    tstart = time.time()
-    
-    # Check missing days -----------------------------------------------------
     
     missing_days = []
     
@@ -208,13 +204,30 @@ def download_missing_days(location, date_start, date_end, api_key='', save=True,
     else:
         n_miss = len(missing_days)
         print(f'{n_miss} missing days found.')
+        
+    return missing_days
+
+
+def download_missing_days(location, date_start, date_end, api_key='', folder=''):
+    """
+    Check if there are missing days between two dates and download them.
+    
+    Inputs / Outputs are the same as download_days()
+    """
+    tstart = time.time()
+    
+    # Check missing days -----------------------------------------------------
+    
+    missing_days = check_missing_days(location, date_start, date_end, folder)
+    
+    if len(missing_days) > 0:
 
         threads = []
         
-        print(f'Loading started in folder {folder}')
+        print(f'Loading missing days in folder {folder}')
     
         for date in missing_days:
-            arguments = (location, date, api_key, save, folder)
+            arguments = (location, date, api_key, True, folder)
             thread = threading.Thread(target=download_day, args=arguments)
             threads.append(thread)
     
@@ -232,10 +245,11 @@ def download_missing_days(location, date_start, date_end, api_key='', save=True,
     return
 
 
+
 def load_day(location, date='now', folder=''):
     """
     Loads weather data (single whole day) that has been downloaded in a folder
-    using download_days, and returns usable data
+    using download_day or download_days.
 
     INPUTS
     - location is a tuple (lon, lat)
@@ -257,7 +271,6 @@ def load_day(location, date='now', folder=''):
     filename = 'DarkSky_' + coord + f',{year:04d}-{month:02d}-{day:02d}.json'
 
     foldername = Path(folder)
-    foldername.mkdir(parents=True, exist_ok=True)
 
     file = foldername / filename
 
@@ -265,6 +278,7 @@ def load_day(location, date='now', folder=''):
         data = json.load(f)
 
     return data
+
 
 
 def weather_pt(location, date='now', api_key=''):
@@ -288,6 +302,7 @@ def weather_pt(location, date='now', api_key=''):
 
     return {'t': t, 'T': T, 'RH': RH,
             'wind': w, 'gust': wmax, 'direction': wdir}
+
 
 
 def weather_day(location, date, api_key='', source='internet'):
@@ -325,6 +340,7 @@ def weather_day(location, date, api_key='', source='internet'):
             'wind': ws, 'gust': wmaxs, 'direction': wdirs}
 
 
+
 def weather_days(location, date_start, ndays, api_key='', source='internet'):
     """
     Loads hourly weather for several days (number of days is ndays)
@@ -360,6 +376,7 @@ def weather_days(location, date_start, ndays, api_key='', source='internet'):
             'wind': ws, 'gust': wmaxs, 'direction': wdirs}
 
 
+
 def _data_to_pts(data):
     """
     Converts raw data into usable data in weatherov.
@@ -383,6 +400,7 @@ def _data_to_pts(data):
     wdir = formatdata('windBearing')
 
     return t, T, RH, w, wmax, wdir
+
 
 
 def weather_plot(data):
