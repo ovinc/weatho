@@ -340,7 +340,12 @@ def weather_day(location, date, api_key='', source='internet'):
     else:
         data_all = load_day(location, date, source)
 
-    data_hourly = data_all['hourly']['data']
+    try:
+        data_hourly = data_all['hourly']['data']
+    except KeyError:
+        date_str = datetime.strftime(date, '%x')
+        print(f'Warning: No hourly data on {date_str}. Returning None.')
+        return None
 
     data_out = {}
     for outname in out_names:  # affect empty list to every data type 
@@ -381,9 +386,12 @@ def weather_days(location, date_start, ndays, api_key='', source='internet'):
         date = date_start + timedelta(days=day)
         data = weather_day(location, date, api_key, source)
 
-        for outname in out_names:
-            data_out[outname] += data[outname]
-
+        if data is None:
+            pass
+        else:
+            for outname in out_names:
+                data_out[outname] += data[outname]
+    
     return data_out
 
 
