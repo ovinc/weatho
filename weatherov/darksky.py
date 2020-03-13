@@ -1,6 +1,8 @@
 """ Download, analyze and plot weather data using data from DarkSky API
 
 See documentation of API here: https://darksky.net/dev/docs
+Here, a higher level set of functions is provided for easier handling of
+data from the API.
 
 Requires an account at Dark Sky, which provides an API key, except when
 using data that has been already downloaded from DarkSky separately. Note that
@@ -405,10 +407,12 @@ def _data_to_pts(data):
         if dataname == 'time':
             data_time = data['time']
             x = datetime.fromtimestamp(data_time)
-        elif dataname == 'humidity':
-            x = 100*formatdata(dataname)
         else:
             x = formatdata(dataname)
+        
+        # For humidity, put the value initially in 0-1 in 0-100%
+        if dataname == 'humidity' and x is not None:
+            x = 100*x
             
         data_out.append(x)
     

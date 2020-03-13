@@ -11,4 +11,5 @@ coordinates = {'Bruxelles': (50.84, 4.35),
                'Paris': (48.86, 2.34),
                'Pasadena': (34.15, -118.14),
                'Santa Monica': (34.01, -118.5),
+               'Singapore': (1.30, 103.86)
                 }
