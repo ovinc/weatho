@@ -12,6 +12,23 @@ Requires an account at Dark Sky, which provides an API key, except when
 using data that has been already downloaded from DarkSky separately. Note that
 the free version of the API is limited to 1000 requests per day.
 
+## Install
+
+#### Method 1
+
+In a terminal:
+```bash
+pip install git+https://cameleon.univ-lyon1.fr/ovincent/weather-ov
+```
+
+#### Method 2
+
+- Clone the project or download directly the files into a folder.
+- In a terminal, `cd` into the project or folder, where the __setup.py__ is, then
+```bash
+pip install .
+```
+
 ## Functions 
 
 See `examples.py` and `help(function)` for implementation.
