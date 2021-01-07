@@ -1,2 +1,3 @@
 weatherov.egg-info/
 weatherov/__pycache__/
+.eggs/
