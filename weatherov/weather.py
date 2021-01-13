@@ -45,8 +45,6 @@ used here, see e.g. the raw dictionary returned by functions like load_day.
 """
 
 # TODO: move from threading to concurrent futures
-# TODO: error or warning if someone tries to create a folder called 'internet'
-
 
 from datetime import datetime, timedelta
 import threading
@@ -56,6 +54,7 @@ from pathlib import Path
 
 import requests
 import matplotlib.pyplot as plt
+
 # the two lines below are used to avoid pandas / matplotlib complaining
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
@@ -76,196 +75,117 @@ out_names = ['t', 'T', 'RH', 'P',
 # ================================ functions =================================
 
 
-def generate_url(location, date='now', api_key=''):
-    """
-    Formats URL for request to DarkSky
+class Weather:
+    """Class to manage weather data from DarkSky or OpenWeatherMap"""
 
-    INPUTS
-    - location is a tuple (lon, lat)
-    - date is either 'now' (default), or a datetime (datetime.datetime)
-    - api_key (string) is the API key for accessing DarkSky.net data
+    def __init__(self, location, source='darksky', api_key=None):
+        """Init Weather object.
 
-    OUTPUTS
-    - url of data (string), can be accessed directly in a browser (json)
-    """
+        Parameters
+        ----------
+        - location: tuple of (lat, long) coordinates
+        - source: 'darksky' (default) or owm (OpenWeatherMap)
+        - api_key: str (API key to access DarkSky or OpenWeatherMap)
+        """
+        self.location = location
+        self.source = source
+        self.api_key = api_key
 
-    (lat, lon) = location
-    coord = f'{lat},{lon}'
-
-    website = 'https://api.darksky.net/forecast/'
-
-    base_url = website + api_key + '/' + coord
-    units = 'ca'
-    # (ca units is SI but ensures that wind is in km/h)
-
-    if date == 'now':
-        url = base_url + '?units=' + units
-    else:
-        t_unix = int(datetime.timestamp(date))
-        url = base_url + f',{t_unix}' + '?units=' + units
-
-    return url
+        self.latitude, self.longitude = self.location
+        self.coord = f'{self.latitude},{self.longitude}'
 
 
-def generate_filename(location, date):
-    (lat, lon) = location
-    coord = f'{lat},{lon}'
-    year = date.year
-    month = date.month
-    day = date.day
-    filename = 'DarkSky_' + coord + f',{year:04d}-{month:02d}-{day:02d}.json'
-    return filename
+    def generate_url(self, date=None):
+        """
+        Formats URL for request to DarkSky
 
+        Parameters
+        ----------
+        - date: if None (default), means now. if not, input datetime.datetime.
 
-def download_day(location, date='now', api_key='', save=False, folder=''):
-    """
-    Downloads single weather point (typically, will return a whole day,
-    including forecast if date is in the current day). It saves the data in a
-    json file if save is True, in the folder (current folder by default)
+        Output
+        ------
+        - url (str) where json data can be accessed from in a browser.
+        """
+        website = 'https://api.darksky.net/forecast/'
 
-    There is an option to not save the data, because the function is also used
-    by weather_pt() and weather_day() in a mode where it transfers the data
-    to these functions for immediate usage without saving.
+        base_url = website + self.api_key + '/' + self.coord
+        units = 'ca'
+        # (ca units is SI but ensures that wind is in km/h)
 
-    INPUTS
-    - location is a tuple (lon, lat)
-    - date is either 'now' (default), or a datetime (datetime.datetime)
-    - api_key (string) is the API key for accessing DarkSky.net data
-    - save is boolean
-    - folder is a string representing a path for saving
+        if date is None:
+            url = base_url + '?units=' + units
+        else:
+            t_unix = int(datetime.timestamp(date))
+            url = base_url + f',{t_unix}' + '?units=' + units
 
-    OUTPUTS
-    - dictionary of raw data corresponding to the DarkSky .json file
-    """
+        return url
 
-    url = generate_url(location, date, api_key)
+    def generate_filename(self, date):
+        """Filename (str) correponding to specific date."""
+        year = date.year
+        month = date.month
+        day = date.day
+        filename = 'DarkSky_' + self.coord + f',{year:04d}-{month:02d}-{day:02d}.json'
+        return filename
 
-    date_str = date if date == 'now' else datetime.strftime(date, '%x')
+    def download_day(self, date=None, save=False, folder=''):
+        """
+        Downloads single weather point (typically, will return a whole day,
+        including forecast if date is in the current day). It saves the data in a
+        json file if save is True, in the folder (current folder by default)
 
-    try:
-        data = requests.get(url).json()
-    except Exception:
-        print(f'Download error for {date_str}. Please try again.')
-        return None
+        There is an option to not save the data, because the function is also used
+        by weather_pt() and weather_day() in a mode where it transfers the data
+        to these functions for immediate usage without saving.
 
-    if get_hourly_data(data) is None:
-        print(f'Warning: No Hourly Data on {date_str}.')
+        Input
+        -----
+        - date is either None (now, default), or a datetime.datetime
+        - save is boolean: save data into .json file
+        - folder is a string representing a path for saving
 
-    if save is True:
+        Output
+        ------
+        - dictionary of raw data corresponding to the DarkSky .json file
+        """
+        url = self.generate_url(date)
 
-        if date == 'now': date = datetime.now()  # Warning -- date changed here
+        date_str = date if date is None else datetime.strftime(date, '%x')
 
-        filename = generate_filename(location, date)
+        try:
+            data = requests.get(url).json()
+        except Exception:
+            print(f'Download error for {date_str}. Please try again.')
+            return None
 
-        foldername = Path(folder)
-        foldername.mkdir(parents=True, exist_ok=True)
+        if self.get_hourly_data(data) is None:
+            print(f'Warning: No Hourly Data on {date_str}.')
 
-        savefile = foldername / filename
+        if save is True:
 
-        with open(savefile, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+            date = datetime.now() if date is None else date
+            filename = self.generate_filename(date)
 
-    return data
+            foldername = Path(folder)
+            foldername.mkdir(parents=True, exist_ok=True)
 
+            savefile = foldername / filename
 
-def download_days(location, date_start, date_end, api_key='', folder=''):
-    """
-    Downloads weather data (day-by-day) from DarkSky between selected dates.
-    Uses threading on the function dowload_day().
+            with open(savefile, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
 
-    INPUTS
-    Same as download_day except that dates have to be datetimes (not 'now')
-    and there is no `save` option (data is always saved in a file here).
+        return data
 
-    OUTPUTS
-    None
-    """
-    delta_t = date_end - date_start
-    ndays = delta_t.days + 1  # number of days to load
-
-    threads = []
-    tstart = time.time()
-    print(f'Loading started in folder {folder}')
-
-    for day in range(ndays):
-        date = date_start + timedelta(days=day)
-        arguments = (location, date, api_key, True, folder)
-        thread = threading.Thread(target=download_day, args=arguments)
-        threads.append(thread)
-
-    for thread in threads:
-        thread.start()
-
-    for thread in threads:
-        thread.join()
-
-    tend = time.time()
-    total_time = tend - tstart
-
-    print(f'Loading finished in {total_time} seconds.')
-
-    # Check that all requested files have been downloadedand download missing
-    download_missing_days(location, date_start, date_end, api_key, folder)
-
-    return
-
-
-def check_missing_days(location, date_start, date_end, folder=''):
-    """Check for missing days between two dates in downloaded data"""
-
-    delta_t = date_end - date_start
-    ndays = delta_t.days + 1  # number of days to load
-
-    missing_days = []
-
-    for day in range(ndays):
-
-        date = date_start + timedelta(days=day)
-        file = Path(folder) / generate_filename(location, date)
-
-        if file.exists() is False:
-            missing_days.append(date)
-
-    if len(missing_days) == 0:
-        print('No missing days found.')
-    else:
-        n_miss = len(missing_days)
-        print(f'{n_miss} missing days found.')
-
-    return missing_days
-
-
-def get_hourly_data(data):
-    """Check if there is hourly data in RAW darksky data, if yes return it."""
-    try:
-        data_hourly = data['hourly']['data']
-    except KeyError:
-        return None
-    else:
-        return data_hourly
-
-
-def download_missing_days(location, date_start, date_end, api_key='', folder=''):
-    """
-    Check if there are missing days between two dates and download them.
-
-    Inputs / Outputs are the same as download_days()
-    """
-    tstart = time.time()
-
-    # Check missing days -----------------------------------------------------
-
-    missing_days = check_missing_days(location, date_start, date_end, folder)
-
-    if len(missing_days) > 0:
-
+    def _download_days(self, dates, folder):
+        """Threaded downloading of whole days of data."""
         threads = []
+        tstart = time.time()
+        print(f'Loading started in folder {folder}')
 
-        print(f'Loading missing days in folder {folder}')
-
-        for date in missing_days:
-            arguments = (location, date, api_key, True, folder)
-            thread = threading.Thread(target=download_day, args=arguments)
+        for date in dates:
+            thread = threading.Thread(target=self.download_day,
+                                      args=(date, True, folder))
             threads.append(thread)
 
         for thread in threads:
@@ -279,169 +199,218 @@ def download_missing_days(location, date_start, date_end, api_key='', folder='')
 
         print(f'Loading finished in {total_time} seconds.')
 
-    return
 
+    def download_days(self, date_start, date_end, folder='.'):
+        """
+        Downloads weather data (day-by-day) from DarkSky between selected dates.
+        Uses threading on the function dowload_day().
 
-def load_day(location, date='now', folder=''):
-    """
-    Loads weather data (single whole day) that has been downloaded in a folder
-    using download_day or download_days.
+        Input
+        -----
+        Same as download_day except that dates have to be datetimes (not 'now')
+        and there is no `save` option (data is always saved in a file here).
 
-    INPUTS
-    - location is a tuple (lon, lat)
-    - date is either 'now' (default), or a datetime (datetime.datetime)
-    - folder is a string representing a path where data is loaded from
+        Ouput
+        -----
+        None
+        """
+        delta_t = date_end - date_start
+        ndays = delta_t.days + 1  # number of days to load
+        dates = [date_start + timedelta(days=day) for day in range(ndays)]
 
-    OUTPUTS
-    - dictionary of raw data corresponding to the DarkSky .json file
-    """
+        self._download_days(dates, folder)
 
-    if date == 'now': date = datetime.now()  # Warning -- date changed here
+        while len(self.check_missing_days(date_start, date_end, folder)) > 0:
+            self.download_missing_days(date_start, date_end, folder)
 
-    (lat, lon) = location
-    coord = f'{lat},{lon}'
-    year = date.year
-    month = date.month
-    day = date.day
+    def check_missing_days(self, date_start, date_end, folder='.'):
+        """Check for missing days between two dates in downloaded data."""
 
-    filename = 'DarkSky_' + coord + f',{year:04d}-{month:02d}-{day:02d}.json'
+        delta_t = date_end - date_start
+        ndays = delta_t.days + 1  # number of days to load
 
-    foldername = Path(folder)
+        missing_days = []
 
-    file = foldername / filename
+        for day in range(ndays):
 
-    with open(file, 'r') as f:
-        data = json.load(f)
+            date = date_start + timedelta(days=day)
+            file = Path(folder) / self.generate_filename(date)
 
-    return data
+            if file.exists() is False:
+                missing_days.append(date)
 
-
-def weather_pt(location, date='now', api_key=''):
-    """
-    Loads weather condition at a specific time, from the internet (DarkSky)
-
-    INPUTS
-    - location is a tuple (lon, lat)
-    - date is either 'now' (default), or a datetime (datetime.datetime)
-    - api_key (string) is the API key for accessing DarkSky.net data
-
-    OUTPUTS
-    - dictionary of formatted data {'t': t, 'T': T, 'RH': RH ...} where T, RH
-    etc. are single numbers correspond to the weather conditions at time t.
-    """
-
-    data_all = download_day(location, date, api_key)
-    data = data_all['currently']
-    data_pts = _data_to_pts(data)
-
-    return data_pts
-
-
-def weather_day(location, date, api_key='', source='internet'):
-    """
-    Loads hourly weather for a specific day (date in datetime format).
-
-    INPUTS
-    - location is a tuple (lon, lat)
-    - date is either 'now' (default), or a datetime (datetime.datetime)
-    - api_key (string) is the API key for accessing DarkSky.net data
-    - source is either 'internet' (requests data from DarkSky.net) or a folder
-
-    OUTPUTS
-    - dictionary of formatted data {'t': ts, 'T': Ts, 'RH': RH ...} where ts,
-    Ts, etc. are lists (length 24) corresponding to hourly data
-    """
-
-    if source == 'internet':
-        data_all = download_day(location, date, api_key)
-    else:
-        data_all = load_day(location, date, source)
-
-    data_hourly = get_hourly_data(data_all)
-
-    if data_hourly is None:
-        date_str = datetime.strftime(date, '%x')
-        print(f'Warning: No hourly data on {date_str}. Returning None.')
-        return None
-
-    data_out = {}
-    for outname in out_names:  # affect empty list to every data type
-        data_out[outname] = []
-
-    for data in data_hourly:  # loops over hours of that day
-
-        data_pts = _data_to_pts(data)
-
-        for outname in out_names:
-            data_out[outname].append(data_pts[outname])
-
-    return data_out
-
-
-def weather_days(location, date_start, ndays, api_key='', source='internet'):
-    """
-    Loads hourly weather for several days (number of days is ndays)
-
-    INPUTS
-    - location is a tuple (lon, lat)
-    - date_start is a datetime (datetime.datetime)
-    - ndays is an int (number of days)
-    - api_key (string) is the API key for accessing DarkSky.net data
-    - source is either 'internet' (requests data from DarkSky.net) or a folder
-
-    OUTPUTS
-    - dictionary of formatted data {'t': ts, 'T': Ts, 'RH': RH ...} where ts,
-    Ts, etc. are lists (length ndays*24) corresponding to hourly data
-    """
-
-    data_out = {}
-    for outname in out_names:  # affect empty list to every data type
-        data_out[outname] = []
-
-    for day in range(ndays):
-
-        date = date_start + timedelta(days=day)
-        data = weather_day(location, date, api_key, source)
-
-        if data is None:
-            pass
+        if len(missing_days) == 0:
+            print('No missing days found.')
         else:
-            for outname in out_names:
-                data_out[outname] += data[outname]
+            n_miss = len(missing_days)
+            print(f'{n_miss} missing days found.')
 
-    return data_out
+        return missing_days
 
-
-def _data_to_pts(data):
-    """
-    Converts raw data into usable data in weatherov (dict of names and values)
-    Used by weather_day and weather_pt
-    """
-
-    def formatdata(name):
+    @staticmethod
+    def get_hourly_data(data):
+        """Check if there is hourly data in RAW darksky data, if yes return it."""
         try:
-            val = data[name]
+            data_hourly = data['hourly']['data']
         except KeyError:
-            val = None
-        return val
-
-    data_out = []
-
-    for dataname in in_names:
-
-        if dataname == 'time':
-            data_time = data['time']
-            x = datetime.fromtimestamp(data_time)
+            return None
         else:
-            x = formatdata(dataname)
+            return data_hourly
 
-        # For humidity, put the value initially in 0-1 in 0-100%
-        if dataname == 'humidity' and x is not None:
-            x = 100*x
+    def download_missing_days(self, date_start, date_end, folder='.'):
+        """
+        Check if there are missing days between two dates and download them.
 
-        data_out.append(x)
+        Inputs / Outputs are the same as download_days()
+        """
+        missing_days = self.check_missing_days(date_start, date_end, folder)
+        if len(missing_days) < 1:
+            print(f'No missing days in {folder} between {date_start} and {date_end}')
+        else:
+            self._download_days(missing_days, folder)
 
-    return dict(zip(out_names, data_out))
+    def load_day(self, date=None, folder=''):
+        """
+        Loads weather data (single whole day) that has been downloaded in a folder
+        using download_day or download_days.
+
+        Parameters
+        ----------
+        - date is either None ('now', default), or a datetime.datetime
+        - folder is a string representing a path where data is loaded from
+
+        Output
+        ------
+        Dictionary of raw data corresponding to the DarkSky .json file
+        """
+        date = datetime.now() if date is None else date
+        file = Path(folder) / self.generate_filename(date)
+
+        with open(file, 'r') as f:
+            data = json.load(f)
+
+        return data
+
+    def weather_pt(self, date=None):
+        """
+        Loads weather condition at a specific time, from the internet (DarkSky)
+
+        Parameters
+        ----------
+        - date is either 'now' (default), or a datetime (datetime.datetime)
+
+        Output
+        ------
+        Dictionary of formatted data {'t': t, 'T': T, 'RH': RH ...} where T, RH
+        etc. are single numbers correspond to the weather conditions at time t.
+        """
+        data_all = self.download_day(date)
+        data = data_all['currently']
+        data_pts = self._data_to_pts(data)
+        return data_pts
+
+    def weather_day(self, date, source=None):
+        """
+        Loads hourly weather for a specific day (date in datetime format).
+
+        Parameters
+        ----------
+        - date is either 'now' (default), or a datetime (datetime.datetime)
+        - source is either None (requests data from internet) or a folder
+
+        Output
+        ------
+        Dictionary of formatted data {'t': ts, 'T': Ts, 'RH': RH ...} where ts,
+        Ts, etc. are lists (length 24) corresponding to hourly data
+        """
+        if source is None:
+            data_all = self.download_day(date)
+        else:
+            data_all = self.load_day(date, source)
+
+        data_hourly = self.get_hourly_data(data_all)
+
+        if data_hourly is None:
+            date_str = datetime.strftime(date, '%x')
+            print(f'Warning: No hourly data on {date_str}. Returning None.')
+            return None
+
+        data_out = {}
+        for outname in out_names:  # affect empty list to every data type
+            data_out[outname] = []
+
+        for data in data_hourly:  # loops over hours of that day
+
+            data_pts = self._data_to_pts(data)
+
+            for outname in out_names:
+                data_out[outname].append(data_pts[outname])
+
+        return data_out
+
+    def weather_days(self, date_start, ndays, source=None):
+        """
+        Loads hourly weather for several days (number of days is ndays)
+
+        Parameters
+        ----------
+        - date_start is a datetime (datetime.datetime)
+        - ndays is an int (number of days)
+        - source is either None (requests data from internet) or a folder
+
+        Output
+        ------
+        Dictionary of formatted data {'t': ts, 'T': Ts, 'RH': RH ...} where ts,
+        Ts, etc. are lists (length ndays*24) corresponding to hourly data
+        """
+        data_out = {}
+        for outname in out_names:  # affect empty list to every data type
+            data_out[outname] = []
+
+        for day in range(ndays):
+
+            date = date_start + timedelta(days=day)
+            data = self.weather_day(date, source)
+
+            if data is None:
+                pass
+            else:
+                for outname in out_names:
+                    data_out[outname] += data[outname]
+
+        return data_out
+
+    @staticmethod
+    def _data_to_pts(data):
+        """
+        Converts raw data into usable data in weatherov (dict of names and values)
+        Used by weather_day and weather_pt
+        """
+
+        def formatdata(name):
+            try:
+                val = data[name]
+            except KeyError:
+                val = None
+            return val
+
+        data_out = []
+
+        for dataname in in_names:
+
+            if dataname == 'time':
+                data_time = data['time']
+                x = datetime.fromtimestamp(data_time)
+            else:
+                x = formatdata(dataname)
+
+            # For humidity, put the value initially in 0-1 in 0-100%
+            if dataname == 'humidity' and x is not None:
+                x = 100 * x
+
+            data_out.append(x)
+
+        return dict(zip(out_names, data_out))
 
 
 def weather_plot(data, title=None):
@@ -538,13 +507,12 @@ def weather_plot(data, title=None):
     axa = (ax0a, ax1a, ax2a)
     axb = (ax0b, ax1b, ax2b)
 
-
     tmin = min(t)
     tmax = max(t)
-    dt = (tmax-tmin)/60
+    dt = (tmax - tmin) / 60
 
     for ax in axa:
-        ax.set_xlim((tmin, tmax+dt)) # the +dt is for the last timestamp to appear
+        ax.set_xlim((tmin, tmax + dt))  # the +dt is for the last timestamp to appear
 
     if title is not None:
         fig.suptitle(title)
@@ -555,4 +523,3 @@ def weather_plot(data, title=None):
     fig.show()
 
     return fig, axa, axb
-

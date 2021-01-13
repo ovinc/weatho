@@ -1,35 +1,38 @@
 """ Examples of weather data download and plot plotting using Dark Sky data
 and functions from the darksky module in the weather project (O. Vincent)
 
-All %% cells are independent (except when specified), but need the initial 
+All %% cells are independent (except when specified), but need the initial
 imports, as well as an api_key for DarkSky.net (free if <1000 calls/day)
 stored as a string in the variable api_key, and city coordinate imports
 """
+# %% Imports
 
 import weatherov as wov
 
 # import GPS coordinates of some cities
-from locations import coordinates
+from weatherov.locations import coordinates
 
 # general imports
 from datetime import datetime, timedelta
 
 
-# %% 
-key = api_key  # see docstring above 
+# %%
+key = api_key  # see docstring above
 
-# %% Define location coordinates
+# %% Define location coordinates and corresponding Weather objects
 Lyon = coordinates['Lyon']
 Paris = coordinates['Paris']
-Marseille = coordinates['Marseille']
+
+wlyon = wov.Weather(Lyon, api_key=key)
+wparis = wov.Weather(Paris, api_key=key)
 
 # %% get single weather point at current time --------------------------------
 
-data = wov.weather_pt(Lyon, 'now', key)
+data = wlyon.weather_pt()
 print(data)
 
 # %%  also possible to get the url to see the raw data in json format:
-url = wov.generate_url(Lyon, 'now', key)
+url = wlyon.generate_url()
 print(url)
 
 
@@ -40,53 +43,50 @@ month = 2
 day = 7
 hours = 14
 minutes = 7
-seconds = 10
 
-time = datetime(year, month, day, hours, minutes, seconds)
+time = datetime(year, month, day, hours, minutes)
 
-data = wov.weather_pt(Paris, time, key)
+data = wparis.weather_pt(time)
 print(data)
 
 # also possible to get the url to see the raw data in json format:
-url = wov.generate_url(Paris, time, key)
+url = wparis.generate_url(time)
 print(url)
 
 
 # %% get hourly data for a given day in history, from the internet (DarkSky)
 
-year = 2020
+year = 2021
 month = 1
 day = 1
 
 date = datetime(year, month, day)
 
-data = wov.weather_day(Lyon, date, key)
-# or
-#data = wov.weather_day(Lyon, date, api_key=key, source='internet')
+data = wlyon.weather_day(date)
 
 wov.weather_plot(data)
 
 
 # %% download hourly data for a given day in history, and save data into a file
 
-year = 2020
+year = 2021
 month = 1
 day = 1
 
 date = datetime(year, month, day)
 
-wov.download_day(Lyon, date, key, save=True, folder='Test')
+wlyon.download_day(date, save=True, folder='Test')
 
 # %% load hourly data from downloaded file (needs to be run after above cell)
 
-data = wov.weather_day(Lyon, date, source='Test')
+data = wlyon.weather_day(date, source='Test')
 # (no need for the key here, because it's already downloaded)
 wov.weather_plot(data)
 
 
 # %% get hourly data for n successive days in history, from the internet -----
 
-year = 2020
+year = 2021
 month = 2
 day = 4
 
@@ -94,9 +94,7 @@ n = 4
 
 date = datetime(year, month, day)
 
-#data = wov.weather_days(Marseille, date, n, key)
-# or
-data = wov.weather_days(Marseille, date, n, key, source='internet')
+data = wparis.weather_days(date, n)
 
 # plot data
 wov.weather_plot(data)
@@ -105,25 +103,25 @@ wov.weather_plot(data)
 # %% download hourly data for several days between date 1 and date 2, and
 # save the data into files
 
-year = 2020
+year = 2021
 month = 2
 day = 4
 
 date1 = datetime(year, month, day)
 date2 = date1 + timedelta(days=4)
 
-wov.download_days(Lyon, date1, date2, key, folder='Data/Test')
-# or
-# wov.download_days(Lyon, date1, date2, key, folder='Data/Test')
+wlyon.download_days(date1, date2, folder='Test')
 
 # download missing days if necessary (now it's also run automatically at the
 # end of download_days, once).
-wov.download_missing_days(Lyon, date1, date2, key, folder='Data/Test')
+wlyon.download_missing_days(date1, date2, folder='Test')
 
 
 # %% get hourly data for n successive days in history, from saved files ------
 # (needs to be run after above cell)
 
-data = wov.weather_days(Lyon, date, 5, source='Data/Test')
+data = wlyon.weather_days(date, 5, source='Test')
 wov.weather_plot(data)
 
+
+# %%
