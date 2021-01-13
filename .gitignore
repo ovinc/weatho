@@ -1,3 +1,5 @@
-weatherov.egg-info/
-weatherov/__pycache__/
+*egg-info*
+*__pycache__*
 .eggs/
+build/
+dist/
