@@ -1,6 +1,6 @@
 """Init of weatherov module."""
 
-from .weather import Weather, weather_plot
+from .weather import Weather, plot
 
 from importlib.metadata import version
 
