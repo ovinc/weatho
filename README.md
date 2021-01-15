@@ -1,95 +1,124 @@
 # About
 
-Uses the Dark Sky API and database to get current weather and history.
+Access, download and plot weather data from the following APIs:
+- Darksky (https://darksky.net/dev)
+- OpenWeatherMap (https://openweathermap.org/api)
 
-See documentation of API here: https://darksky.net/dev/docs
-Here, a higher level set of functions is provided for easier handling of
-data from the API.
-
-Requires an account at Dark Sky, which provides an API key, except when
-using data that has been already downloaded from DarkSky separately. Note that
-the free version of the API is limited to 1000 requests per day.
+Both sources require an API key to get access to the data. However, when dealing with data already downloaded as files and stored locally, the API key is not necessary.
 
 # Install
 
 ### Method 1
 
-In a terminal:
+One step, non-editable install from a terminal:
 ```bash
 pip install git+https://cameleon.univ-lyon1.fr/ovincent/weather-ov
 ```
 
 ### Method 2
 
-- Clone the project or download directly the files into a folder.
+
+- Clone the project with *git* or download directly the files into a folder.
 - In a terminal, `cd` into the project or folder, where the __setup.py__ is, then
 ```bash
 pip install .
 ```
+(for development: `pip install -e .`).
+
+# Quick Start
+
+```python
+from weatherov import Weather, plot
+
+# source can be 'owm' or 'darksky'
+w = Weather(location=(45.77, 4.84), source='owm', api_key='xyz')
+
+# Get raw data from the API (source-dependent)
+# --------------------------------------------
+
+w.url()    # get URL at which to downlowd data
+w.fetch()  # get data as a dictionary
+
+# By default, current data; get historical data by passing a datetime.datetime:
+
+from datetime import datetime, timedelta
+from pytz import timezone
+tz = timezone('Europe/Paris')
+date = tz.localize(datetime(2021, 1, 15, 12))  # 15 Jan. 2021 at Noon in Paris timezone
+
+w.url(date)
+w.fetch(date)
+
+# Get and plot formatted, source-independent data
+# -----------------------------------------------
+
+w.current()   # current weather conditions
+w.hourly()    # hourly data for present day, including forecast
+
+# It is also possible to access historical data:
+w.current(date)
+w.hourly(date, until=date + timedelta(days=3))
+
+# Plot hourly data:
+plot(w.hourly())
+```
+
+There are also options to download the data directly as .json files in a folder and work from this data.
+
+For detailed examples, see the *Examples.ipynb* notebook.
+
 
 # Contents
 
-See `examples.py` and `help(function)` for implementation.
 
 ## Weather class
 
-Instantiate a weather object:
-```python
-from weatherov import Weather
-weather = Weather(location=(45.77, 4.84), api_key='xyz')
-```
+The following methods are available from a `Weather` object:
 
-Now the following methods are available from the `weather` object:
+- For raw, source-dependent data:
+    - `url()` and copy-paste the link into a browser (returns url link)
+    - `fetch()` to get the raw data from the internet (returns dict of data)
+    - `save()` to save the raw data into a .json file
+    - `load()` to get the raw data from a .json file (returns dict of data)
 
-- To produce complete RAW data (dictionary corresponding to DarkSky .json file),
-use the following functions:
-    - `generate_url()` and copy-paste the link into a browser (returns url link)
-    - `download_day()` to get the raw data from the internet (returns dict of data)
-    - `load_day()` to get the raw data from downloaded files (returns dict of data)
+- For formatted, source-independent data for analysis and plotting:
+    - `current()`: returns a dict of values (data at specific time)
+    - `hourly()`: returns a dict of lists of values (hourly data), can be used in `plot()` directly.
 
-- To produce FORMATTED data for analysis and plotting, use the following:
-    - `weather_pt()`  (returns a dict of values -- data at specific time)
-    - `weather_day()` (returns a dict of lists -- hourly data)
-    - `weather_days()` (returns a dict of lists -- hourly data)
+- To download data from the API into local files, possibly in batch:
+    - `download()`: saves API data in .json format in a folder (threaded for multiple requests at the same time).
+    - `missing_days()`: checks if there are any missing files of data between specified dates in a folder.
+    - `download_missing_days()`: same as above, but also downloads the missing data in the folder.
 
-- To download a bunch of data from the internet and save in a file:
-    - `download_days()` (saves RAW data in .json format in a folder, it is a threaded
-    version of download_day)
-    - `download_missing_days()` (to run after download_days if some days have failed)
-    - the above function uses `check_missing_days()`, which can also be used as a
-    standalone function
+*Note:* To access data from downloaded files, use `load()` to get raw data, and `hourly(path=...)` to get formatted data.
 
 ## Plotting weather data
 
-Use the `weather_plot()` function, which takes formatted data from `weather_day()` or `weather_days()` as input.
+- `plot()`: takes formatted hourly data from `hourly()` (either using the API or downloaded files) as input.
 
 ## Notes
 
 - If one gets the error `KeyError: 'hourly'`, it's likely that the data is not
-downloaded correctly or inexistent. Check that the api_key is correct and/or
-test the download URL generated by `generate_url` in a browser.
+downloaded correctly or inexistent. Check that the API key is correct and/or
+test the download URL generated by `url()` in a browser.
 
 - More data might be available compared to the ones returned by the functions
-used here, see e.g. the raw dictionary returned by functions like load_day.
+used here, see e.g. the raw dictionary returned by functions like `fetch()` or `load()`.
 
-- The module `weatherov.locations` stores coordinates of some cities / locations in the `coordinates` dictionary.
+- For tests, the module `weatherov.locations` stores coordinates of some cities/locations as a `coordinates` dictionary.
 
 
-## Examples
+# Other information
 
-See `examples.py` for examples of code.
+## Python requirements
 
-# Ohter information
+- Python >= 3.6
 
-## Module requirements
+## Package requirements
 
 - requests
 - matplotlib
 - pandas (something about date formatting and registration with matplotlib)
-
-## Python requirements
-
-- Python >= 3.6 because of f-string formatting
 
 ## Author
 
