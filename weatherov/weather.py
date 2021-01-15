@@ -134,9 +134,11 @@ class Weather:
 
     def _download_batch(self, dates, path):
         """Threaded downloading of whole days of data."""
+        if len(dates) < 1:
+            return
         threads = []
         tstart = time.time()
-        print(f'Loading started in folder {path}')
+        print(f'Download started in folder {path}')
 
         for date in dates:
             thread = threading.Thread(target=self._download, args=(date, path))
@@ -148,7 +150,7 @@ class Weather:
         for thread in threads:
             thread.join()
 
-        print(f'Loading finished in {time.time() - tstart} seconds.')
+        print(f'Download finished in {time.time() - tstart:.2f} seconds.')
 
     def _hourly_data(self, data):
         """Check if there is hourly data in RAW darksky data, if yes return it."""
@@ -261,13 +263,11 @@ class Weather:
         - dictionary of raw data corresponding to the DarkSky .json file
         """
         address = self.url(date)
-
-        date = datetime.now() if date is None else date
-        date_str = datetime.strftime(date, '%x')
-
         try:
             data = requests.get(address).json()
         except Exception:
+            date = datetime.now() if date is None else date
+            date_str = datetime.strftime(date, '%x')
             print(f'Download error for {date_str}. Please try again.')
             return None
 
@@ -355,11 +355,14 @@ class Weather:
             if file.exists() is False:
                 missing_days.append(date)
 
+        dmin = datetime.strftime(min(dates), '%x')
+        dmax = datetime.strftime(max(dates), '%x')
+
         if len(missing_days) == 0:
-            print('No missing days found.')
+            print(f'No missing days in {path} between {dmin} and {dmax}')
         else:
             n_miss = len(missing_days)
-            print(f'{n_miss} missing days found.')
+            print(f'{n_miss} missing days found in {path} between {dmin} and {dmax}')
 
         return missing_days
 
@@ -370,10 +373,7 @@ class Weather:
         Inputs / Outputs are the same as download()
         """
         missing_days = self.missing_days(date, path, until, ndays)
-        if len(missing_days) < 1:
-            print(f'No missing days in {path} between {date} and {until}')
-        else:
-            self._download_batch(missing_days, path)
+        self._download_batch(missing_days, path)
 
     # ============== High-level public methods (formatted data) ==============
 
