@@ -1,0 +1,4 @@
+include *.ipynb
+recursive-include data *.json
+recursive-include media *.png
+recursive-include tests *.py

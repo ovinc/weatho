@@ -52,7 +52,7 @@ plot(w.hourly())
 
 There are also options to download the data directly as .json files in a folder and work from this data (see below).
 
-For detailed examples, see the *Examples.ipynb* notebook.
+For detailed examples, see the *Examples.ipynb* notebook (https://github.com/ovinc/weatho/blob/master/Examples.ipynb).
 
 
 # Contents
@@ -82,6 +82,8 @@ The following methods are available from a `Weather` object:
 ## Plotting weather data
 
 - `plot()`: takes formatted hourly data from `hourly()` (either using the API or downloaded files) as input.
+
+![](https://raw.githubusercontent.com/ovinc/weatho/master/media/example_plot.png)
 
 # Notes
 

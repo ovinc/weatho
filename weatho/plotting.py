@@ -10,8 +10,7 @@ import matplotlib.pyplot as plt
 
 
 def plot(data, title=None):
-    """
-    Plots hourly data of temperature, humidity and wind on a single graph.
+    """Plot hourly data of temperature, humidity and wind on a single graph.
 
     Input
     -----
