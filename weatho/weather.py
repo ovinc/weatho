@@ -99,11 +99,16 @@ class Weather:
         ------
         - timezone-aware datetime corresponding to 'currently' time in data
         """
-        timezone = pytz.timezone(data['timezone'])
-        current_name = current_names[self.source]
-        time_name = time_names[self.source]
-        unix_time = data[current_name][time_name]
-        return datetime.fromtimestamp(unix_time, timezone)
+        try:
+            timezone = pytz.timezone(data['timezone'])
+        except KeyError:
+            raise KeyError('No timezone information in data, '
+                           'probably because of download/API error')
+        else:
+            current_name = current_names[self.source]
+            time_name = time_names[self.source]
+            unix_time = data[current_name][time_name]
+            return datetime.fromtimestamp(unix_time, timezone)
 
     def _generate_filename(self, date):
         """.json Filename (str) to store data correponding to specific date."""
@@ -112,7 +117,8 @@ class Weather:
         coord = f'{self.latitude},{self.longitude}'
         return f'{prefix}_{coord},{year:04d}-{month:02d}-{day:02d}.json'
 
-    def _manage_chosen_days(self, date, until, ndays):
+    @staticmethod
+    def _manage_chosen_days(date, until, ndays):
         """Return list of datetime.datetimes corresponding to user input."""
         if date is None:
             return datetime.now(),
@@ -160,7 +166,7 @@ class Weather:
             elif self.source == 'owm':
                 hourly_data = data['hourly']
         except KeyError:
-            date = self._get_time(data)
+            date = self._get_time(data)  # just for printing purposes
             date_str = datetime.strftime(date, '%x')
             print(f'Warning: No hourly data on {date_str}.')
             return None
@@ -227,7 +233,7 @@ class Weather:
             if date is None:  # current conditions
                 address = f'{base}?units={units}'
             else:
-                t_unix = int(datetime.timestamp(date))
+                t_unix = int(date.timestamp())
                 address = f'{base},{t_unix}?units={units}'
 
         elif self.source == "owm":
@@ -240,7 +246,7 @@ class Weather:
                           f'&appid={self.api_key}&units={units}'
 
             else:
-                t_unix = int(datetime.timestamp(date))
+                t_unix = int(date.timestamp())
                 address = f'{website}/timemachine?lat={self.latitude}&units={units}' \
                           f'&lon={self.longitude}&dt={t_unix}&appid={self.api_key}'
 
@@ -260,7 +266,14 @@ class Weather:
 
         Output
         ------
-        - dictionary of raw data corresponding to the DarkSky .json file
+        - dictionary of source-specific, raw data corresponding to the API
+          call (from Darksky or OpenWeatherMap)
+
+        - Note: there is an important difference between DarkSky and OpenWeatherMap
+          concerning the "hourly" data returned with the API call. Both are 24
+          hours long, but :
+            - DarkSky starts at 0:00 in *local* time,
+            - OWM starts at 0:00 in *UTC* time
         """
         address = self.url(date)
         try:
@@ -315,7 +328,7 @@ class Weather:
 
     # ================= High-Level Public Methods (raw data )=================
 
-    def download(self, date=None, path='.', until=None, ndays=None):
+    def download(self, date=None, path='.', until=None, ndays=None, ntries=5):
         """Download (fetch + save) weather data of one or several days.
 
         Input
@@ -332,13 +345,22 @@ class Weather:
         - until (datetime.datetime), download data from `date` to `until` included
         OR
         - ndays (int): total number of days to download, starting at `date`
+
+        - ntries is the number of times the program will check for missing data
+          and try to download it again.
         """
         dates = self._manage_chosen_days(date, until, ndays)
         self._download_batch(dates, path)
 
         # Check if any missing files, and re-download them if necessary ------
-        while len(self.missing_days(date, path, until=until, ndays=ndays)) > 0:
-            self.download_missing_days(date, path, until=until, ndays=ndays)
+        for _ in range(ntries):
+            missing_days = self.missing_days(date, path, until=until, ndays=ndays)
+            if len(missing_days) == 0:
+                break
+            else:
+                self.download_missing_days(date, path, until=until, ndays=ndays)
+        else:
+            print(f'Warning: could not download missing data after {ntries} tries.')
 
     def missing_days(self, date=None, path='.', until=None, ndays=None):
         """Check for missing days in downloaded data.
