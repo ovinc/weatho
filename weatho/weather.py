@@ -6,10 +6,10 @@
 
 # Standard Library
 from datetime import datetime, timedelta
-import threading
 import time
 import json
 from pathlib import Path
+from concurrent import futures
 
 # Packages outside standard library
 import requests
@@ -175,19 +175,12 @@ class Weather:
         """Threaded downloading of whole days of data."""
         if len(dates) < 1:
             return
-        threads = []
         tstart = time.time()
         print(f'Download started in folder {path}')
 
-        for date in dates:
-            thread = threading.Thread(target=self._download, args=(date, path))
-            threads.append(thread)
-
-        for thread in threads:
-            thread.start()
-
-        for thread in threads:
-            thread.join()
+        with futures.ThreadPoolExecutor(max_workers=60) as executor:
+            for date in dates:
+                executor.submit(self._download, date, path)
 
         print(f'Download finished in {time.time() - tstart:.2f} seconds.')
 
